@@ -7,6 +7,7 @@ use App\Models\Peminjaman;
 use App\Models\DetailPeminjaman;
 use App\Models\Barang;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class PeminjamanController extends Controller
 {
@@ -113,11 +114,36 @@ class PeminjamanController extends Controller
     {
         $peminjaman = Peminjaman::findOrFail($id);
 
-        // hapus detail dulu
         DetailPeminjaman::where('id_peminjaman', $peminjaman->id_peminjaman)->delete();
 
         $peminjaman->delete();
 
         return redirect()->route('peminjaman.index');
+    }
+
+    /**
+     * Hitung denda saat pengembalian
+     */
+    public function hitungDenda(Peminjaman $peminjaman)
+    {
+        $today        = Carbon::today();
+        $jatuhTempo   = Carbon::parse($peminjaman->tanggal_pengembalian);
+        $dendaPerHari = 5000;
+
+        if ($today->gt($jatuhTempo)) {
+            $hariTerlambat = $today->diffInDays($jatuhTempo);
+            $denda = $hariTerlambat * $dendaPerHari;
+
+            $peminjaman->update([
+                'denda'             => $denda,
+                'status_peminjaman' => 'dikembalikan',
+            ]);
+        } else {
+            $peminjaman->update([
+                'status_peminjaman' => 'dikembalikan',
+            ]);
+        }
+
+        return back()->with('success', 'Pengembalian berhasil');
     }
 }

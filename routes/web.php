@@ -53,3 +53,7 @@ Route::prefix('admin')
     Route::resource('barang', BarangController::class);
 
 });
+
+Route::post('/peminjaman/{peminjaman}/kembali',
+    [PeminjamanController::class, 'hitungDenda']
+)->name('peminjaman.kembali');
