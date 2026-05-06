@@ -18,22 +18,28 @@ use App\Http\Controllers\LogbookController;
 // Auth (login, register, dll)
 Auth::routes();
 
-// Dashboard (harus login)
-Route::get('/', [DashboardController::class, 'index'])
-    ->middleware('auth')
-    ->name('dashboard');
+// ==============================
+// ✅ HALAMAN UTAMA (PUBLIK)
+// ==============================
+Route::get('/', [BarangController::class, 'index'])->name('home');
 
-// Katalog barang (publik)
-Route::get('/katalog', [BarangController::class, 'index'])
-    ->name('katalog');
+// (opsional, tetap bisa akses /katalog)
+Route::get('/katalog', [BarangController::class, 'index'])->name('katalog');
 
-// Route yang butuh login
+
+// ==============================
+// 🔒 ROUTE YANG BUTUH LOGIN
+// ==============================
 Route::middleware('auth')->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
 
     // Peminjaman
     Route::resource('peminjaman', PeminjamanController::class);
 
-    // Profile (FIX: pakai index)
+    // Profile
     Route::get('/profile', [ProfileController::class, 'index'])
         ->name('profile.show');
 
@@ -45,15 +51,23 @@ Route::middleware('auth')->group(function () {
         ->name('logbook');
 });
 
-// Route admin
+
+// ==============================
+// 🔒 ADMIN ONLY
+// ==============================
 Route::prefix('admin')
     ->middleware(['auth', 'admin'])
     ->group(function () {
 
     Route::resource('barang', BarangController::class);
-
 });
 
+
+// ==============================
+// POST KHUSUS (DENDA)
+// ==============================
 Route::post('/peminjaman/{peminjaman}/kembali',
     [PeminjamanController::class, 'hitungDenda']
 )->name('peminjaman.kembali');
+
+

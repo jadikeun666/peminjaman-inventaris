@@ -6,13 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Barang extends Model
 {
-    protected $primaryKey = 'id_barang';
-protected $fillable = [
-    'nama_barang', 'kode_barang',
-    'jumlah_barang', 'harga_sewa'
-];
+    protected $table = 'barang'; // 🔥 WAJIB
 
-public function detailPeminjaman() {
-    return $this->hasMany(DetailPeminjaman::class, 'id_barang');
-}
+    protected $primaryKey = 'id_barang'; // kalau pakai id_barang
+
+    public $timestamps = false; // kalau tidak pakai created_at
+
+    protected $fillable = [
+        'nama_barang',
+        'kode_barang',
+        'jumlah_barang',
+        'harga_sewa'
+    ];
 }

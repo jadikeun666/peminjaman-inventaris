@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use Illuminate\Http\Request;
 use App\Models\Barang;
 
@@ -14,6 +15,16 @@ class BarangController extends Controller
     {
         $barang = Barang::all();
         return view('barang.index', compact('barang'));
+
+            $query = Barang::query();
+
+    if ($request->search) {
+        $query->where('nama_barang', 'like', '%' . $request->search . '%');
+    }
+
+    $barang = $query->get();
+
+    return view('barang.index', compact('barang'));
     }
 
     /**

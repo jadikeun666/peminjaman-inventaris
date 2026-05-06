@@ -10,30 +10,15 @@ use Illuminate\Support\Facades\Validator;
 
 class RegisterController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Register Controller
-    |--------------------------------------------------------------------------
-    |
-    | This controller handles the registration of new users as well as their
-    | validation and creation. By default this controller uses a trait to
-    | provide this functionality without requiring any additional code.
-    |
-    */
-
     use RegistersUsers;
 
     /**
-     * Where to redirect users after registration.
-     *
-     * @var string
+     * Redirect setelah register
      */
     protected $redirectTo = '/home';
 
     /**
-     * Create a new controller instance.
-     *
-     * @return void
+     * Constructor
      */
     public function __construct()
     {
@@ -41,9 +26,7 @@ class RegisterController extends Controller
     }
 
     /**
-     * Get a validator for an incoming registration request.
-     *
-     * @return \Illuminate\Contracts\Validation\Validator
+     * VALIDASI DATA REGISTER
      */
     protected function validator(array $data)
     {
@@ -51,20 +34,31 @@ class RegisterController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+
+            // FIELD TAMBAHAN
+            
+            'no_hp' => ['nullable', 'string', 'max:20'],
+            'alamat' => ['nullable', 'string'],
         ]);
     }
 
     /**
-     * Create a new user instance after a valid registration.
-     *
-     * @return User
+     * SIMPAN USER KE DATABASE
      */
-    protected function create(array $data)
-    {
-        return User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
-    }
+protected function create(array $data)
+{
+return User::create([
+'name' => $data['name'],
+'email' => $data['email'],
+'password' => Hash::make($data['password']),
+
+    // ✅ FIX: set otomatisS
+    'role' => 'user',
+
+    'no_hp' => $data['no_hp'] ?? null,
+    'alamat' => $data['alamat'] ?? null,
+]);
+
+}
+
 }
