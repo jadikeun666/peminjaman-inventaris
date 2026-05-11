@@ -16,6 +16,12 @@ class Barang extends Model
         'nama_barang',
         'kode_barang',
         'jumlah_barang',
-        'harga_sewa'
+        'harga_sewa',
+        'foto' // ✅ ditambahkan
     ];
+
+    public function detailPeminjaman()
+    {
+        return $this->hasMany(DetailPeminjaman::class, 'id_barang', 'id_barang');
+    }
 }

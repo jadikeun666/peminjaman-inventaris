@@ -9,26 +9,22 @@ use App\Http\Controllers\PeminjamanController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LogbookController;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-*/
-
-// Auth (login, register, dll)
+// Auth
 Auth::routes();
 
 // ==============================
-// ✅ HALAMAN UTAMA (PUBLIK)
+// 🌐 PUBLIK (TIDAK PERLU LOGIN)
 // ==============================
+
+// Homepage langsung katalog
 Route::get('/', [BarangController::class, 'index'])->name('home');
 
-// (opsional, tetap bisa akses /katalog)
+// Katalog tetap bisa diakses tanpa login
 Route::get('/katalog', [BarangController::class, 'index'])->name('katalog');
 
 
 // ==============================
-// 🔒 ROUTE YANG BUTUH LOGIN
+// 🔒 WAJIB LOGIN (AKSI USER)
 // ==============================
 Route::middleware('auth')->group(function () {
 
@@ -36,7 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
-    // Peminjaman
+    // Peminjaman (WAJIB LOGIN)
     Route::resource('peminjaman', PeminjamanController::class);
 
     // Profile
@@ -69,5 +65,3 @@ Route::prefix('admin')
 Route::post('/peminjaman/{peminjaman}/kembali',
     [PeminjamanController::class, 'hitungDenda']
 )->name('peminjaman.kembali');
-
-

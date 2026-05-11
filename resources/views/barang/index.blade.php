@@ -25,6 +25,15 @@
     <div class="col-md-4 mb-4">
         <div class="card shadow-sm h-100">
 
+            @if($item->foto)
+                <img
+                    src="{{ str_starts_with($item->foto, 'http') ? $item->foto : asset('storage/' . $item->foto) }}"
+                    style="height:200px; width:100%; object-fit:cover; border-radius:8px 8px 0 0;"
+                    alt="{{ $item->nama_barang }}"
+                    onerror="this.src='https://placehold.co/400x300/e2e8f0/94a3b8?text=No+Image'"
+                >
+            @endif
+
             <div class="card-body">
                 <h5 class="card-title">{{ $item->nama_barang }}</h5>
 
