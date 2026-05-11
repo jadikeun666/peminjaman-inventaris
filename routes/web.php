@@ -8,6 +8,7 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\PeminjamanController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LogbookController;
+use App\Http\Controllers\AdminController;
 
 // Auth
 Auth::routes();
@@ -32,8 +33,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
-    // Peminjaman (WAJIB LOGIN)
+    // Peminjaman
     Route::resource('peminjaman', PeminjamanController::class);
+
+    // Halaman pembayaran
+    Route::get('/peminjaman/{id}/bayar',
+        [PeminjamanController::class, 'bayar']
+    )->name('peminjaman.bayar');
+
+    // Upload bukti pembayaran
+    Route::post('/peminjaman/{id}/bayar',
+        [PeminjamanController::class, 'uploadBukti']
+    )->name('peminjaman.upload_bukti');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'index'])
@@ -55,7 +66,17 @@ Route::prefix('admin')
     ->middleware(['auth', 'admin'])
     ->group(function () {
 
+    // CRUD Barang
     Route::resource('barang', BarangController::class);
+
+    // QRIS Settings
+    Route::get('/qris',
+        [AdminController::class, 'qrisForm']
+    )->name('admin.qris');
+
+    Route::post('/qris',
+        [AdminController::class, 'qrisUpdate']
+    )->name('admin.qris.update');
 });
 
 

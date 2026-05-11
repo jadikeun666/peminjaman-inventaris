@@ -18,11 +18,23 @@
     <!-- 🔴 INI BAGIAN DENDA -->
     <p>Denda: Rp {{ number_format($item->denda) }}</p>
 
-    <!-- Tombol kembalikan -->
-    <form action="{{ route('peminjaman.kembali', $item->id_peminjaman) }}" method="POST">
-        @csrf
-        <button type="submit">Kembalikan</button>
-    </form>
+    <!-- Tombol Bayar -->
+    @if($item->status_peminjaman == 'menunggu_pembayaran')
+        <a href="{{ route('peminjaman.bayar', $item->id_peminjaman) }}"
+           class="btn btn-success btn-sm">
+            Bayar
+        </a>
+    @endif
+
+    <!-- Tombol Kembalikan -->
+    @if($item->status_peminjaman == 'disewa')
+        <form action="{{ route('peminjaman.kembali', $item->id_peminjaman) }}" method="POST">
+            @csrf
+            <button type="submit" class="btn btn-danger btn-sm">
+                Kembalikan
+            </button>
+        </form>
+    @endif
 
 </div>
 
