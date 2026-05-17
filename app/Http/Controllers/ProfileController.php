@@ -9,42 +9,69 @@ use Illuminate\Support\Facades\Hash;
 class ProfileController extends Controller
 {
     /**
-     * Display user profile
+     * Tampilkan halaman profile
      */
     public function index()
     {
-        $user = Auth::user();
-        return view('profile.index', compact('user'));
+        return view('profile.index');
     }
 
     /**
-     * Update user profile
+     * Update data profile user
      */
     public function update(Request $request)
     {
-        $user = Auth::user();
-
         $request->validate([
-            'name'     => 'required',
-            'email'    => 'required|email',
-            'npm'      => 'required',
-            'no_hp'    => 'required',
-            'password' => 'nullable|min:6',
+            'name'  => 'required|string|max:30',
+            'email' => 'required|email|unique:users,email,' . Auth::id(),
+            'npm'   => 'nullable|numeric',
+            'no_hp' => 'nullable|numeric',
         ]);
 
-        $data = [
+        $user = Auth::user();
+
+        $user->update([
             'name'  => $request->name,
             'email' => $request->email,
             'npm'   => $request->npm,
             'no_hp' => $request->no_hp,
-        ];
+        ]);
 
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+        return back()->with(
+            'success',
+            'Profil berhasil diperbarui!'
+        );
+    }
+
+    /**
+     * Update password user
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'password_lama' => 'required',
+            'password'      => 'required|min:6|confirmed',
+        ]);
+
+        // cek password lama
+        if (!Hash::check(
+            $request->password_lama,
+            Auth::user()->password
+        )) {
+
+            return back()->withErrors([
+                'password_lama' => 'Password lama tidak sesuai.'
+            ]);
         }
 
-        $user->update($data);
+        // update password baru
+        Auth::user()->update([
+            'password' => Hash::make($request->password),
+        ]);
 
-        return redirect()->route('profile.index');
+        return back()->with(
+            'success',
+            'Password berhasil diubah!'
+        );
     }
 }

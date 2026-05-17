@@ -10,31 +10,47 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LogbookController;
 use App\Http\Controllers\AdminController;
 
-// Auth
+// ==============================
+// AUTH
+// ==============================
 Auth::routes();
+
 
 // ==============================
 // 🌐 PUBLIK (TIDAK PERLU LOGIN)
 // ==============================
 
-// Homepage langsung katalog
-Route::get('/', [BarangController::class, 'index'])->name('home');
+// Homepage
+Route::get('/',
+    [BarangController::class, 'index']
+)->name('home');
 
-// Katalog tetap bisa diakses tanpa login
-Route::get('/katalog', [BarangController::class, 'index'])->name('katalog');
+// Katalog
+Route::get('/katalog',
+    [BarangController::class, 'index']
+)->name('katalog');
 
 
 // ==============================
-// 🔒 WAJIB LOGIN (AKSI USER)
+// 🔒 USER LOGIN
 // ==============================
 Route::middleware('auth')->group(function () {
 
+    // ==========================
     // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
+    // ==========================
+    Route::get('/dashboard',
+        [DashboardController::class, 'index']
+    )->name('dashboard');
 
-    // Peminjaman
-    Route::resource('peminjaman', PeminjamanController::class);
+
+    // ==========================
+    // PEMINJAMAN
+    // ==========================
+    Route::resource(
+        'peminjaman',
+        PeminjamanController::class
+    );
 
     // Halaman pembayaran
     Route::get('/peminjaman/{id}/bayar',
@@ -46,16 +62,35 @@ Route::middleware('auth')->group(function () {
         [PeminjamanController::class, 'uploadBukti']
     )->name('peminjaman.upload_bukti');
 
-    // Profile
-    Route::get('/profile', [ProfileController::class, 'index'])
-        ->name('profile.show');
+    // Pengembalian + hitung denda
+    Route::post('/peminjaman/{peminjaman}/kembalikan',
+        [PeminjamanController::class, 'hitungDenda']
+    )->name('peminjaman.kembalikan');
 
-    Route::put('/profile', [ProfileController::class, 'update'])
-        ->name('profile.update');
 
-    // Logbook
-    Route::get('/logbook', [LogbookController::class, 'index'])
-        ->name('logbook');
+    // ==========================
+    // PROFILE
+    // ==========================
+    Route::get('/profile',
+        [ProfileController::class, 'index']
+    )->name('profile.show');
+
+    Route::put('/profile',
+        [ProfileController::class, 'update']
+    )->name('profile.update');
+
+    Route::put('/profile/password',
+        [ProfileController::class, 'updatePassword']
+    )->name('profile.password');
+
+
+    // ==========================
+    // LOGBOOK
+    // ==========================
+    Route::get('/logbook',
+        [LogbookController::class, 'index']
+    )->name('logbook');
+
 });
 
 
@@ -66,10 +101,17 @@ Route::prefix('admin')
     ->middleware(['auth', 'admin'])
     ->group(function () {
 
-    // CRUD Barang
-    Route::resource('barang', BarangController::class);
+    // ==========================
+    // CRUD BARANG
+    // ==========================
+    Route::resource(
+        'barang',
+        BarangController::class
+    );
 
-    // QRIS Settings
+    // ==========================
+    // QRIS SETTINGS
+    // ==========================
     Route::get('/qris',
         [AdminController::class, 'qrisForm']
     )->name('admin.qris');
@@ -77,12 +119,5 @@ Route::prefix('admin')
     Route::post('/qris',
         [AdminController::class, 'qrisUpdate']
     )->name('admin.qris.update');
+
 });
-
-
-// ==============================
-// POST KHUSUS (DENDA)
-// ==============================
-Route::post('/peminjaman/{peminjaman}/kembali',
-    [PeminjamanController::class, 'hitungDenda']
-)->name('peminjaman.kembali');

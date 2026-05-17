@@ -8,6 +8,7 @@ use App\Models\DetailPeminjaman;
 use App\Models\Barang;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class PeminjamanController extends Controller
@@ -17,9 +18,15 @@ class PeminjamanController extends Controller
      */
     public function index()
     {
-        $peminjaman = Peminjaman::with('details.barang', 'user')->get();
+        $peminjaman = Peminjaman::with(
+            'details.barang',
+            'user'
+        )->get();
 
-        return view('peminjaman.index', compact('peminjaman'));
+        return view(
+            'peminjaman.index',
+            compact('peminjaman')
+        );
     }
 
     /**
@@ -27,9 +34,19 @@ class PeminjamanController extends Controller
      */
     public function create()
     {
-        $barang = Barang::all();
+        // Hanya barang dengan stok tersedia
+        $barang = Barang::where(
+                        'jumlah_barang',
+                        '>',
+                        0
+                    )
+                    ->orderBy('nama_barang')
+                    ->get();
 
-        return view('peminjaman.create', compact('barang'));
+        return view(
+            'peminjaman.create',
+            compact('barang')
+        );
     }
 
     /**
@@ -38,33 +55,120 @@ class PeminjamanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tanggal_peminjaman'   => 'required|date|after_or_equal:today',
-            'tanggal_pengembalian' => 'required|date|after:tanggal_peminjaman',
-            'barang'               => 'required|array',
+
+            'tanggal_peminjaman' =>
+                'required|date|after_or_equal:today',
+
+            'tanggal_pengembalian' =>
+                'required|date|after:tanggal_peminjaman',
+
+            'barang' =>
+                'required|array',
+
+            'barang.*.id' =>
+                'required|exists:barang,id_barang',
+
+            'barang.*.jumlah' =>
+                'required|integer|min:1',
         ]);
 
-        $peminjaman = Peminjaman::create([
-            'id_user'              => Auth::id(),
-            'tanggal_peminjaman'   => $request->tanggal_peminjaman,
-            'tanggal_pengembalian' => $request->tanggal_pengembalian,
-            'status_peminjaman'    => 'menunggu_pembayaran',
-            'denda'                => 0,
-        ]);
-
+        // Validasi stok
         foreach ($request->barang as $item) {
 
-            $barang = Barang::find($item['id']);
+            $barang =
+                Barang::findOrFail($item['id']);
 
-            DetailPeminjaman::create([
-                'id_peminjaman' => $peminjaman->id_peminjaman,
-                'id_barang'     => $item['id'],
-                'jumlah_pinjam' => $item['jumlah'],
-                'biaya_sewa'    => $item['jumlah'] * $barang->harga_sewa,
-            ]);
+            // Jika stok habis
+            if ($barang->jumlah_barang <= 0) {
+
+                return back()
+                    ->withInput()
+                    ->withErrors([
+
+                        'barang' =>
+                            "Stok {$barang->nama_barang} sudah habis."
+                    ]);
+            }
+
+            // Jika jumlah melebihi stok
+            if (
+                $item['jumlah']
+                > $barang->jumlah_barang
+            ) {
+
+                return back()
+                    ->withInput()
+                    ->withErrors([
+
+                        'barang' =>
+                            "Stok {$barang->nama_barang} hanya tersisa {$barang->jumlah_barang} unit."
+                    ]);
+            }
         }
 
-        return redirect()->route('peminjaman.bayar', $peminjaman->id_peminjaman)
-                         ->with('info', 'Form berhasil! Selesaikan pembayaran.');
+        DB::transaction(function () use (
+            $request,
+            &$peminjaman
+        ) {
+
+            // Simpan peminjaman
+            $peminjaman = Peminjaman::create([
+
+                'id_user' =>
+                    Auth::id(),
+
+                'tanggal_peminjaman' =>
+                    $request->tanggal_peminjaman,
+
+                'tanggal_pengembalian' =>
+                    $request->tanggal_pengembalian,
+
+                'status_peminjaman' =>
+                    'menunggu_pembayaran',
+
+                'denda' =>
+                    0,
+            ]);
+
+            // Simpan detail
+            foreach ($request->barang as $item) {
+
+                $barang =
+                    Barang::findOrFail($item['id']);
+
+                DetailPeminjaman::create([
+
+                    'id_peminjaman' =>
+                        $peminjaman->id_peminjaman,
+
+                    'id_barang' =>
+                        $item['id'],
+
+                    'jumlah_pinjam' =>
+                        $item['jumlah'],
+
+                    'biaya_sewa' =>
+                        $item['jumlah']
+                        * $barang->harga_sewa,
+                ]);
+
+                // Kurangi stok
+                $barang->decrement(
+                    'jumlah_barang',
+                    $item['jumlah']
+                );
+            }
+        });
+
+        return redirect()
+            ->route(
+                'peminjaman.bayar',
+                $peminjaman->id_peminjaman
+            )
+            ->with(
+                'info',
+                'Form berhasil! Selesaikan pembayaran.'
+            );
     }
 
     /**
@@ -72,57 +176,93 @@ class PeminjamanController extends Controller
      */
     public function bayar(string $id)
     {
-        $peminjaman = Peminjaman::with('details.barang')
+        $peminjaman = Peminjaman::with(
+                            'details.barang'
+                        )
                         ->findOrFail($id);
 
-        $qrisImage    = Setting::get('qris_image');
-        $namaMerchant = Setting::get('nama_merchant');
-        $infoRekening = Setting::get('info_rekening');
+        $qrisImage =
+            Setting::get('qris_image');
 
-        return view('peminjaman.bayar', compact(
-            'peminjaman',
-            'qrisImage',
-            'namaMerchant',
-            'infoRekening'
-        ));
+        $namaMerchant =
+            Setting::get('nama_merchant');
+
+        $infoRekening =
+            Setting::get('info_rekening');
+
+        return view(
+            'peminjaman.bayar',
+            compact(
+                'peminjaman',
+                'qrisImage',
+                'namaMerchant',
+                'infoRekening'
+            )
+        );
     }
 
     /**
      * Upload bukti pembayaran
      */
-public function uploadBukti(Request $request, string $id)
-{
-    $request->validate([
-        'bukti_bayar'       => 'required|image|mimes:jpg,jpeg,png|max:3048',
-        'metode_pembayaran' => 'required|in:qris,tunai',
-    ]);
+    public function uploadBukti(
+        Request $request,
+        string $id
+    ) {
 
-    $peminjaman = Peminjaman::findOrFail($id);
+        $request->validate([
 
-    $path = $request->file('bukti_bayar')
-                    ->store('bukti_bayar', 'public');
+            'bukti_bayar' =>
+                'required|image|mimes:jpg,jpeg,png|max:3048',
 
-    $peminjaman->update([
-        'bukti_bayar'       => $path,
-        'metode_pembayaran' => $request->metode_pembayaran,
+            'metode_pembayaran' =>
+                'required|in:qris,tunai',
+        ]);
 
-        // 🔥 INI YANG KAMU BUTUHKAN
-        'status_peminjaman' => 'disewa',
-    ]);
+        $peminjaman =
+            Peminjaman::findOrFail($id);
 
-    return redirect()->route('peminjaman.index')
-                     ->with('success', 'Pembayaran berhasil! Status menjadi disewa.');
-}
+        $path = $request
+                    ->file('bukti_bayar')
+                    ->store(
+                        'bukti_bayar',
+                        'public'
+                    );
+
+        $peminjaman->update([
+
+            'bukti_bayar' =>
+                $path,
+
+            'metode_pembayaran' =>
+                $request->metode_pembayaran,
+
+            'status_peminjaman' =>
+                'disewa',
+        ]);
+
+        return redirect()
+            ->route('peminjaman.index')
+            ->with(
+                'success',
+                'Pembayaran berhasil! Status menjadi disewa.'
+            );
+    }
 
     /**
      * Display the specified resource.
      */
     public function show(string $id)
     {
-        $peminjaman = Peminjaman::with('details.barang', 'user')
+        $peminjaman = Peminjaman::with(
+                            'details.barang',
+                            'user'
+                        )
                         ->findOrFail($id);
 
-        return view('peminjaman.show', compact('peminjaman'));
+        return view(
+            'peminjaman.show',
+            compact('peminjaman')
+        );
     }
 
     /**
@@ -130,32 +270,57 @@ public function uploadBukti(Request $request, string $id)
      */
     public function edit(string $id)
     {
-        $peminjaman = Peminjaman::findOrFail($id);
+        $peminjaman =
+            Peminjaman::findOrFail($id);
+
         $barang = Barang::all();
 
-        return view('peminjaman.edit', compact('peminjaman', 'barang'));
+        return view(
+            'peminjaman.edit',
+            compact(
+                'peminjaman',
+                'barang'
+            )
+        );
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        $peminjaman = Peminjaman::findOrFail($id);
+    public function update(
+        Request $request,
+        string $id
+    ) {
+
+        $peminjaman =
+            Peminjaman::findOrFail($id);
 
         $request->validate([
-            'tanggal_peminjaman'   => 'required|date',
-            'tanggal_pengembalian' => 'required|date|after:tanggal_peminjaman',
-            'status_peminjaman'    => 'required',
+
+            'tanggal_peminjaman' =>
+                'required|date',
+
+            'tanggal_pengembalian' =>
+                'required|date|after:tanggal_peminjaman',
+
+            'status_peminjaman' =>
+                'required',
         ]);
 
         $peminjaman->update([
-            'tanggal_peminjaman'   => $request->tanggal_peminjaman,
-            'tanggal_pengembalian' => $request->tanggal_pengembalian,
-            'status_peminjaman'    => $request->status_peminjaman,
+
+            'tanggal_peminjaman' =>
+                $request->tanggal_peminjaman,
+
+            'tanggal_pengembalian' =>
+                $request->tanggal_pengembalian,
+
+            'status_peminjaman' =>
+                $request->status_peminjaman,
         ]);
 
-        return redirect()->route('peminjaman.index');
+        return redirect()
+            ->route('peminjaman.index');
     }
 
     /**
@@ -163,42 +328,89 @@ public function uploadBukti(Request $request, string $id)
      */
     public function destroy(string $id)
     {
-        $peminjaman = Peminjaman::findOrFail($id);
+        $peminjaman =
+            Peminjaman::findOrFail($id);
 
-        DetailPeminjaman::where('id_peminjaman', $peminjaman->id_peminjaman)
-                        ->delete();
+        DetailPeminjaman::where(
+            'id_peminjaman',
+            $peminjaman->id_peminjaman
+        )->delete();
 
         $peminjaman->delete();
 
-        return redirect()->route('peminjaman.index');
+        return redirect()
+            ->route('peminjaman.index');
     }
 
     /**
      * Hitung denda saat pengembalian
      */
-    public function hitungDenda(Peminjaman $peminjaman)
-    {
-        $today        = Carbon::today();
-        $jatuhTempo   = Carbon::parse($peminjaman->tanggal_pengembalian);
+    public function hitungDenda(
+        Peminjaman $peminjaman
+    ) {
+
+        $today =
+            Carbon::today();
+
+        $jatuhTempo =
+            Carbon::parse(
+                $peminjaman->tanggal_pengembalian
+            );
+
         $dendaPerHari = 5000;
 
+        $denda = 0;
+
+        // Jika terlambat
         if ($today->gt($jatuhTempo)) {
 
-            $hariTerlambat = $today->diffInDays($jatuhTempo);
-            $denda = $hariTerlambat * $dendaPerHari;
+            // SELISIH HARI
+            $hariTerlambat =
+                $jatuhTempo->diffInDays($today);
 
-            $peminjaman->update([
-                'denda'             => $denda,
-                'status_peminjaman' => 'dikembalikan',
-            ]);
-
-        } else {
-
-            $peminjaman->update([
-                'status_peminjaman' => 'dikembalikan',
-            ]);
+            $denda =
+                $hariTerlambat
+                * $dendaPerHari;
         }
 
-        return back()->with('success', 'Pengembalian berhasil');
+        // Update data
+        $peminjaman->update([
+
+            'denda' =>
+                $denda,
+
+            'status_peminjaman' =>
+                'dikembalikan',
+        ]);
+
+        // Kembalikan stok
+        foreach (
+            $peminjaman->details
+            as $detail
+        ) {
+
+            $detail->barang->increment(
+                'jumlah_barang',
+                $detail->jumlah_pinjam
+            );
+        }
+
+        // Pesan
+        $pesan = $denda > 0
+
+            ? "Barang dikembalikan. Denda keterlambatan: Rp "
+                . number_format(
+                    $denda,
+                    0,
+                    ',',
+                    '.'
+                )
+
+            : "Barang dikembalikan tepat waktu.";
+
+        return back()->with(
+            'success',
+            $pesan
+        );
     }
 }
