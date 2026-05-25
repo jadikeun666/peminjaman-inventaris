@@ -47,17 +47,23 @@
     </div>
 </form>
 
-<!-- Grid kartu barang -->
-@if($barang->isEmpty())
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-inbox fs-1"></i>
-        <p class="mt-2">Tidak ada barang ditemukan.</p>
-    </div>
-@else
-    <div class="row row-cols-1 row-cols-md-3 g-4">
-        @foreach($barang as $item)
-        <div class="col">
-            <div class="card h-100 border-0 shadow-sm">
+<!-- Foto barang -->
+<img
+    src="{{ $item->foto
+        ? asset('storage/' . $item->foto)
+        : 'https://placehold.co/400x300/e2e8f0/94a3b8?text=No+Image'
+    }}"
+
+    class="card-img-top p-3"
+
+    style="
+        height: 220px;
+        object-fit: contain;
+        background: #f8fafc;
+    "
+
+    alt="{{ $item->nama_barang }}"
+>
 
                 <!-- Foto barang -->
                 @if($item->foto)
