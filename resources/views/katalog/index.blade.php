@@ -63,8 +63,12 @@
                 @if($item->foto)
                     <img
                         src="{{ str_starts_with($item->foto, 'http') ? $item->foto : asset('storage/' . $item->foto) }}"
-                        class="card-img-top"
-                        style="height: 200px; object-fit: cover;"
+                        class="card-img-top p-3"
+                        style="
+                            height: 220px;
+                            object-fit: contain;
+                            background: #f8fafc;
+                        "
                         alt="{{ $item->nama_barang }}"
                         onerror="this.src='https://placehold.co/400x300/e2e8f0/94a3b8?text=No+Image'"
                     >

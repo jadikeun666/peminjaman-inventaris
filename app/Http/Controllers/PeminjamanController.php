@@ -18,10 +18,26 @@ class PeminjamanController extends Controller
      */
     public function index()
     {
+        // ✅ Admin lihat semua, user biasa hanya miliknya
         $peminjaman = Peminjaman::with(
-            'details.barang',
-            'user'
-        )->get();
+                'details.barang',
+                'user'
+            )
+            ->when(
+                !Auth::user()->isAdmin(),
+                function ($query) {
+
+                    $query->where(
+                        'id_user',
+                        Auth::id()
+                    );
+                }
+            )
+            ->orderBy(
+                'created_at',
+                'desc'
+            )
+            ->get();
 
         return view(
             'peminjaman.index',
@@ -181,6 +197,17 @@ class PeminjamanController extends Controller
                         )
                         ->findOrFail($id);
 
+        // ✅ Admin boleh akses semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke pembayaran ini.'
+            );
+        }
+
         $qrisImage =
             Setting::get('qris_image');
 
@@ -221,6 +248,17 @@ class PeminjamanController extends Controller
         $peminjaman =
             Peminjaman::findOrFail($id);
 
+        // ✅ Admin boleh upload semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
+
         $path = $request
                     ->file('bukti_bayar')
                     ->store(
@@ -259,6 +297,17 @@ class PeminjamanController extends Controller
                         )
                         ->findOrFail($id);
 
+        // ✅ Admin boleh lihat semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
+
         return view(
             'peminjaman.show',
             compact('peminjaman')
@@ -272,6 +321,17 @@ class PeminjamanController extends Controller
     {
         $peminjaman =
             Peminjaman::findOrFail($id);
+
+        // ✅ Admin boleh edit semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
 
         $barang = Barang::all();
 
@@ -294,6 +354,17 @@ class PeminjamanController extends Controller
 
         $peminjaman =
             Peminjaman::findOrFail($id);
+
+        // ✅ Admin boleh update semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
 
         $request->validate([
 
@@ -331,6 +402,26 @@ class PeminjamanController extends Controller
         $peminjaman =
             Peminjaman::findOrFail($id);
 
+        // ✅ Admin boleh hapus semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
+
+        // ✅ Kembalikan stok sebelum hapus
+        foreach ($peminjaman->details as $detail) {
+
+            $detail->barang->increment(
+                'jumlah_barang',
+                $detail->jumlah_pinjam
+            );
+        }
+
         DetailPeminjaman::where(
             'id_peminjaman',
             $peminjaman->id_peminjaman
@@ -349,6 +440,17 @@ class PeminjamanController extends Controller
         Peminjaman $peminjaman
     ) {
 
+        // ✅ Admin boleh proses semua
+        if (
+            !Auth::user()->isAdmin()
+            && $peminjaman->id_user !== Auth::id()
+        ) {
+            abort(
+                403,
+                'Kamu tidak punya akses ke peminjaman ini.'
+            );
+        }
+
         $today =
             Carbon::today();
 
@@ -357,20 +459,14 @@ class PeminjamanController extends Controller
                 $peminjaman->tanggal_pengembalian
             );
 
-        $dendaPerHari = 5000;
-
         $denda = 0;
 
         // Jika terlambat
         if ($today->gt($jatuhTempo)) {
 
-            // SELISIH HARI
-            $hariTerlambat =
-                $jatuhTempo->diffInDays($today);
-
             $denda =
-                $hariTerlambat
-                * $dendaPerHari;
+                $jatuhTempo->diffInDays($today)
+                * 5000;
         }
 
         // Update data
@@ -398,7 +494,7 @@ class PeminjamanController extends Controller
         // Pesan
         $pesan = $denda > 0
 
-            ? "Barang dikembalikan. Denda keterlambatan: Rp "
+            ? 'Dikembalikan. Denda: Rp '
                 . number_format(
                     $denda,
                     0,
@@ -406,7 +502,7 @@ class PeminjamanController extends Controller
                     '.'
                 )
 
-            : "Barang dikembalikan tepat waktu.";
+            : 'Dikembalikan tepat waktu.';
 
         return back()->with(
             'success',

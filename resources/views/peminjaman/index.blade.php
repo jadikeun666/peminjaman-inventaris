@@ -44,9 +44,27 @@
 
     <div class="card-body">
 
-        <h5 class="card-title mb-3">
-            Peminjaman #{{ $item->id_peminjaman }}
-        </h5>
+        <div class="d-flex justify-content-between align-items-start mb-3">
+
+            <div>
+
+                <h5 class="card-title mb-1">
+                    Peminjaman #{{ $item->id_peminjaman }}
+                </h5>
+
+                {{-- ✅ Nama user hanya tampil untuk admin --}}
+                @if(Auth::user()->isAdmin())
+
+                    <p class="text-muted mb-0">
+                        <strong>User:</strong>
+                        {{ $item->user->name }}
+                    </p>
+
+                @endif
+
+            </div>
+
+        </div>
 
         <p class="mb-1">
             <strong>Tanggal Pinjam:</strong>
@@ -216,6 +234,17 @@
                 </form>
 
             @endif
+
+            {{-- Tombol Detail --}}
+            <a href="{{ route(
+                'peminjaman.show',
+                $item->id_peminjaman
+            ) }}"
+               class="btn btn-outline-primary btn-sm">
+
+                Detail
+
+            </a>
 
         </div>
 

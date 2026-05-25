@@ -53,4 +53,9 @@ public function peminjaman() {
             'password' => 'hashed',
         ];
     }
+
+    public function isAdmin(): bool
+{
+    return (bool) $this->is_admin;
+}
 }
